@@ -3,17 +3,24 @@ from transformers import OwlViTProcessor, OwlViTForObjectDetection
 from PIL import Image
 import cv2
 import torch
+import time
 
 model_name = "google/owlvit-base-patch32"
 processor = OwlViTProcessor.from_pretrained(model_name)
-detector = OwlViTForObjectDetection.from_pretrained(model_name)
 
-print('Models loaded')
+# Move to GPU if available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+detector = OwlViTForObjectDetection.from_pretrained(model_name).to(device)
+
+print(f'Models loaded on {device}')
 
 # Define classes to detect
-classes = ["hammer", "sunglasses", "a solid orange mallet or hammer"]
+classes = ["hammer", "sunglasses", "a solid orange mallet or hammer", "headphones"]
 
 frame_count = 0
+process_every_n_frames = 3  # Only process every 3rd frame
+fps_stats = []
+last_fps_update = time.time()
 
 def try_open_camera():
     for camera_index in [0, 1, 2]:
@@ -35,8 +42,13 @@ if cap is None:
     exit()
 else:
     print("Press 'q' to quit...")
+    
+# Set lower resolution for faster processing
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # Main loop
+last_time = time.time()
 while True:
     frame_count += 1
     
@@ -45,7 +57,32 @@ while True:
     if not ret:
         print("Error: Failed to capture image")
         break
-        
+    
+    # Calculate FPS
+    current_time = time.time()
+    elapsed = current_time - last_time
+    last_time = current_time
+    
+    if elapsed > 0:
+        current_fps = 1.0 / elapsed
+        fps_stats.append(current_fps)
+        # Keep only recent FPS values
+        if len(fps_stats) > 30:
+            fps_stats.pop(0)
+    
+    # Skip frames to increase processing speed
+    if frame_count % process_every_n_frames != 0:
+        # Just display the previous processed frame with updated FPS
+        if 'display_frame' in locals():
+            avg_fps = sum(fps_stats) / len(fps_stats) if fps_stats else 0
+            cv2.putText(display_frame, f"FPS: {avg_fps:.1f}", (10, 60), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            cv2.imshow("Object Detection", display_frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            continue
+    
     # Convert frame to RGB for the model
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
@@ -55,18 +92,25 @@ while True:
     # Process frame with model
     try:
         inputs = processor(text=classes, images=pil_image, return_tensors="pt")
-        outputs = detector(**inputs)
+        # Move inputs to the same device as model
+        inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+        
+        with torch.no_grad():  # Disable gradient calculation for inference
+            outputs = detector(**inputs)
         
         # Post-process results
-        target_sizes = torch.Tensor([pil_image.size[::-1]])
-        results = processor.post_process_object_detection(outputs=outputs, target_sizes=target_sizes, threshold=0.1)
+        target_sizes = torch.Tensor([pil_image.size[::-1]]).to(device)
+        results = processor.post_process_grounded_object_detection(outputs=outputs, target_sizes=target_sizes, threshold=0.1)
         
         # Create a copy for drawing
         display_frame = frame.copy()
         
-        # Add frame counter
+        # Add frame counter and FPS display
+        avg_fps = sum(fps_stats) / len(fps_stats) if fps_stats else 0
         cv2.putText(display_frame, f"Frame: {frame_count}", (10, 30), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(display_frame, f"FPS: {avg_fps:.1f}", (10, 60), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         
         # Draw bounding boxes
         boxes, scores, labels = results[0]["boxes"], results[0]["scores"], results[0]["labels"]
@@ -116,7 +160,9 @@ while True:
             cv2.putText(display_frame, text, (x1, y1 - 5),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)  # White text
             
-            print(f"Drew box #{i} for {classes[label_idx]}: {score_val:.2f} at {x1},{y1},{x2},{y2}")
+            # Limit console output - only print on occasional frames
+            if frame_count % 10 == 0:
+                print(f"Drew box #{i} for {classes[label_idx]}: {score_val:.2f} at {x1},{y1},{x2},{y2}")
     
         # Display frame with detection status
         status_text = "Detecting..." if not detected_anything else f"Found {len(boxes)} objects"
@@ -132,8 +178,8 @@ while True:
     # Display frame
     cv2.imshow("Object Detection", display_frame)
     
-    # Exit on 'q' key press
-    key = cv2.waitKey(30) & 0xFF
+    # Exit on 'q' key press (use shorter wait time)
+    key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
 
