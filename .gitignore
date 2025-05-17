@@ -1,2 +1,6 @@
-
+.vscode/
+*.jpg
+*.pt
+build/
+libtorch/
 .DS_Store
