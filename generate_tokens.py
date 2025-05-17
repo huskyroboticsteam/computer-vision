@@ -1,9 +1,5 @@
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, OwlViTConfig
-
-from PIL import Image
-import cv2
 import torch
-import time
 
 model_name = "google/owlvit-base-patch32"
 processor = OwlViTProcessor.from_pretrained(model_name)
@@ -16,6 +12,6 @@ classes = ["no object", "orange mallet or hammer", "water bottle"]
 example = processor(text=classes, return_tensors="pt")
 example = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in example.items()}
 
-print(example["input_ids"])
+print(f'Input IDs:\n{example["input_ids"]}')
 print()
-print(example["attention_mask"])
+print(f'Attention Mask:\n{example["attention_mask"]}')

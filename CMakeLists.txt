@@ -8,13 +8,13 @@ find_package(Torch REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Add your executable
-add_executable(test test.cpp)
+add_executable(object_detection object_detection.cpp)
 
 # Link against Torch and OpenCV
-target_link_libraries(test "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
+target_link_libraries(object_detection "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
 
 # Include OpenCV headers
-target_include_directories(test PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_include_directories(object_detection PRIVATE ${OpenCV_INCLUDE_DIRS})
 
 # Set C++ standard
-set_property(TARGET test PROPERTY CXX_STANDARD 17)
+set_property(TARGET object_detection PROPERTY CXX_STANDARD 17)

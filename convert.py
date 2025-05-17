@@ -1,5 +1,4 @@
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, OwlViTConfig
-
 from PIL import Image
 import torch
 
