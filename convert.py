@@ -1,3 +1,5 @@
+# Script to generate the owlvit-cpp model for C++
+
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, OwlViTConfig
 from PIL import Image
 import torch
