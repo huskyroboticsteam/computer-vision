@@ -1,3 +1,5 @@
+# Script to generate hard coded input tokens (Input IDs and Attention Masks) to prompt owl-vit
+
 from transformers import OwlViTProcessor, OwlViTForObjectDetection, OwlViTConfig
 import torch
 

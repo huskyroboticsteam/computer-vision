@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 
+// Function to preprocess a given image into the format required by the owl-vit model
 torch::Tensor preprocess(const cv::Mat& image) {
 	const std::vector<float> mean = {0.5, 0.5, 0.5};
 	const std::vector<float> std = {0.5, 0.5, 0.5};
@@ -27,6 +28,8 @@ torch::Tensor preprocess(const cv::Mat& image) {
 	return img_tensor.unsqueeze(0);
 }
 
+// Function to run a given image through an object detection model
+// Retruns the logits and predicted bounding boxes for detected objects
 std::vector<torch::Tensor> run_owlvit_model(torch::jit::script::Module& model, const cv::Mat& image) {
     torch::NoGradGuard no_grad;
 
@@ -64,6 +67,7 @@ std::vector<torch::Tensor> run_owlvit_model(torch::jit::script::Module& model, c
 	return std::vector<at::Tensor>{logits, pred_boxes};
 }
 
+// Function to draw a bounding box at the given position with a label and confidence.
 void draw_bounding_box(cv::Mat& image, int x1, int y1, int x2, int y2, const std::string& label, float confidence) {
     // Draw rectangle
     cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 255, 0), 2);
@@ -80,6 +84,7 @@ void draw_bounding_box(cv::Mat& image, int x1, int y1, int x2, int y2, const std
     cv::putText(image, text, cv::Point(x1, y1 - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
 }
 
+// Function to draw a bounding box around the object detected with the highest confidence value.
 void draw_detected_objects(cv::Mat& image, torch::Tensor logits, torch::Tensor boxes, const std::vector<std::string>& class_names, float confidence_threshold = 0.5) {
     int img_width = image.cols;
     int img_height = image.rows;
@@ -135,7 +140,6 @@ void draw_detected_objects(cv::Mat& image, torch::Tensor logits, torch::Tensor b
         std::cout << "No high-confidence object detected." << std::endl;
     }
 }
-
 
 int main(int argc, char *argv[]) {
 	if(argc < 2) {
